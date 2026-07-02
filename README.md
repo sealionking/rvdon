@@ -72,7 +72,7 @@ PF 扩展**复用 WGMMA 数据通路**，新增：
 | 模块 | 状态 | 说明 |
 |------|------|------|
 | PF_TMM RTL | ✅ 验证通过 | 0/128 错误，SimX + RTL 仿真一致 |
-| PF_FLASH_ATTN RTL | 🔄 调试中 | FP32 算术已验证，uop 展开和 per-thread 分布 bug 修复中 |
+| PF_FLASH_ATTN RTL | ✅ 验证通过 | 0/128 错误，FA_SOFTMAX online softmax 流水线正确 |
 | SimX 行为模型 | ✅ 功能完成 | PF_TMM + FA_MMA/FA_SOFTMAX/FA_UPDATE |
 | 回归测试 | ✅ 框架就绪 | `tests/regression/pf_tcu/` |
 | LLVM intrinsic | ⏸ 待开发 | vx_pf.h 头文件已定义 intrinsics |
