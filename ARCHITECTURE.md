@@ -2,7 +2,7 @@
 
 > PF Extension ISA v0.1 — Pairformer Extension for Vortex TCU
 >
-> Copyright © 2024-2026 DiVo Gen²AI — wangjueju.cn · jueju.wang
+> Copyright © 2024-2026 DiVo Gen²AI — 王掬琅（Peter Wang）· 王潇奕（Shawn Wang）— wangjueju.cn · jueju.wang
 
 ---
 

@@ -8,7 +8,7 @@
 
 RVDon 是 Vortex RISC-V GPGPU 的 fork，所有 RVDon 扩展通过以下方式标识：
 
-- 新增文件头部标注 `Copyright (C) 2024-2026 DiVo Gen²AI`
+- 新增文件头部标注 `Copyright (C) 2024-2026 DiVo Gen²AI (王掬琅 Peter Wang · 王潇奕 Shawn Wang)`
 - 修改上游文件处标注 `DiVo Gen²AI RVDon` 注释
 - 条件编译宏 `VX_CFG_TCU_PF_*_ENABLE` 隔离扩展功能
 
@@ -119,4 +119,4 @@ make run-simx
 
 ---
 
-© 2024-2026 DiVo Gen²AI — [wangjueju.cn](https://wangjueju.cn) · [jueju.wang](https://jueju.wang)
+© 2024-2026 DiVo Gen²AI — 王掬琅（Peter Wang）· 王潇奕（Shawn Wang）— [wangjueju.cn](https://wangjueju.cn) · [jueju.wang](https://jueju.wang)

@@ -90,7 +90,7 @@
 RVDon 以 Vortex fork 形式维护，通过清晰标注区分上游代码和 RVDon 扩展：
 
 - 所有 RVDon 新增/修改处标注 `DiVo Gen²AI RVDon` 注释
-- 新增文件头部标注 `Copyright (C) 2024-2026 DiVo Gen²AI`
+- 新增文件头部标注 `Copyright (C) 2024-2026 DiVo Gen²AI (王掬琅 Peter Wang · 王潇奕 Shawn Wang)`
 - 修改上游文件时保留原始 Apache 2.0 版权头
 - 通过 `VX_CFG_TCU_PF_*_ENABLE` 条件编译宏隔离，禁用时回退到原版 Vortex
 

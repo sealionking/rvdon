@@ -172,4 +172,4 @@ Apache License 2.0 — 详见 [LICENSE](LICENSE)
 
 RVDon 基于 Vortex（Apache 2.0）开发。RVDon 新增代码版权归 DiVo Gen²AI 所有。
 
-© 2024-2026 DiVo Gen²AI — [wangjueju.cn](https://wangjueju.cn) · [jueju.wang](https://jueju.wang)
+© 2024-2026 DiVo Gen²AI — 王掬琅（Peter Wang）· 王潇奕（Shawn Wang）— [wangjueju.cn](https://wangjueju.cn) · [jueju.wang](https://jueju.wang)
