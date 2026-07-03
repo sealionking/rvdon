@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/DiVo_Gen2AI_Logo_Landscape.svg" alt="DiVo Gen²AI Logo" width="480">
+</p>
+
 # RVDon — RISC-V Domain-specific Open Node
 
 > **Protenix/AlphaFold3 Pairformer 加速的 RISC-V 扩展架构**
