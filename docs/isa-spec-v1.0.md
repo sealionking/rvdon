@@ -10,7 +10,7 @@
 
 ## 1 Overview
 
-The RVDon PF (Pairformer) Extension adds three custom instructions to the Vortex RISC-V GPGPU Tensor Compute Unit (TCU), targeting the core computation patterns of AlphaFold3/Protenix Pairformer modules:
+The RVDon PF (Pairformer) Extension adds three custom instructions to the Vortex RISC-V GPGPU Tensor Compute Unit (TCU), targeting two classes of computation patterns that are pervasive across scientific computing and AI:
 
 | Instruction | funct3 | Description |
 |-------------|--------|-------------|
@@ -22,11 +22,25 @@ All PF instructions share the same R-type encoding as Vortex's native WGMMA (opc
 
 ### 1.1 Motivation
 
-Pairformer's three core kernels map poorly to general-purpose GPU matrix units:
+Two classes of computation patterns map poorly to general-purpose GPU matrix units:
 
-1. **Triangle Multiplication** computes `Z[i][j] += Σ_k A[i][k]·B[j][k]` only for `i < j` (outgoing) or `i > j` (incoming). On standard WGMMA, half the multiply results are masked to zero in software, wasting ~50% of compute throughput. PF_TMM gates the accumulation at the TCU lane level, eliminating wasted operations.
+1. **Symmetric/Triangle Matrix Operations** — computations where only the upper or lower triangle of the result matrix is meaningful. This includes:
+   - **Pairformer Triangle Multiplication** (`Z[i][j] += Σ_k A[i][k]·B[j][k]` for `i < j` only)
+   - **Graph Neural Networks** (adjacency/degree matrices are symmetric; half the multiply is redundant)
+   - **Covariance/Correlation matrices** (symmetric by definition)
+   - **Molecular interaction matrices** (pairwise distances are symmetric)
+   
+   On standard WGMMA, half the multiply results are masked to zero in software, wasting ~50% of compute throughput. PF_TMM gates the accumulation at the TCU lane level, eliminating wasted operations.
 
-2. **Triangle Attention** applies causal masking plus online softmax over the O = softmax(QK^T/√d)·V sequence. Standard Flash Attention requires separate MMA → Softmax → Update passes with global synchronization. PF_FLASH_ATTN integrates these three sub-operations as TCU micro-ops, enabling single-pass execution within the warp's TCU occupancy window.
+2. **Causal Attention** — attention with lower-triangular (causal) masking plus online softmax. This includes:
+   - **Pairformer Triangle Attention** (causal mask + triangle symmetry)
+   - **Autoregressive language models** (GPT, LLaMA, DeepSeek — every decoder layer)
+   - **Time-series forecasting / Reinforcement learning** (causal sequence modeling)
+   - **Video understanding** (temporal causal attention)
+   
+   Standard Flash Attention requires separate MMA → Softmax → Update passes with global synchronization. PF_FLASH_ATTN integrates these three sub-operations as TCU micro-ops, enabling single-pass execution within the warp's TCU occupancy window.
+
+**Origin:** RVDon was initially designed for AlphaFold3/Protenix Pairformer, but the underlying patterns — symmetric masked matrix multiply and causal online softmax — are far more broadly applicable.
 
 ### 1.2 Configuration Guards
 

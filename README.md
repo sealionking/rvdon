@@ -4,7 +4,7 @@
 
 # RVDon — RISC-V Domain-specific Open Node
 
-> **Protenix/AlphaFold3 Pairformer 加速的 RISC-V 扩展架构**
+> **三角对称矩阵运算 + 因果注意力加速的 RISC-V 扩展架构**
 >
 > 由 [DiVo Gen²AI](https://wangjueju.cn) 开发 | 基于 [Vortex RISC-V GPU](https://github.com/vortexgpgpu/vortex) | Apache 2.0
 
@@ -12,19 +12,30 @@
 
 ## RVDon 是什么
 
-RVDon 是在 Vortex RISC-V GPGPU 架构上扩展的**领域专用加速节点**，为蛋白质结构预测（AlphaFold3 / Protenix）中的 Pairformer 模块提供硬件级加速。
+RVDon 是在 Vortex RISC-V GPGPU 架构上扩展的**领域专用加速节点**，为两类广泛存在的计算模式提供硬件级加速：
 
-Pairformer 的核心计算模式：
+1. **三角对称矩阵运算** — 对称矩阵乘法、图神经网络邻接矩阵、协方差/距离矩阵
+2. **因果注意力（Causal Attention）** — 自回归语言模型（GPT/LLaMA）、序列决策、时序预测
 
-- **Triangle Multiplication (Outgoing/Incoming)**：三角矩阵乘法 + 对称性掩码
-- **Triangle Attention**：三角注意力 + 因果掩码 + 在线 Softmax
+这些模式的共同特征是在通用 GPU 上存在严重的计算浪费：
+- 对称矩阵只需计算上/下三角，但 WGMMA 仍执行完整矩阵乘后软件掩码——**浪费 ~50% 算力**
+- 因果注意力需要下三角掩码 + online softmax，通用 Flash Attention 需多次全局同步——**延迟高、同步开销大**
 
-这些模式在通用 GPU 上通过 WGMMA + 软件掩码实现，存在：
-1. 掩码逻辑在标量核上串行执行，浪费算力
-2. Flash Attention 的 online softmax 需要多次全局同步
-3. 三角对称性未被硬件利用，一半计算是冗余的
+RVDon 通过 **PF Extension 指令**在 TCU 流水线中原生支持这些模式，消除冗余计算和软件开销。
 
-RVDon 通过 **PF Extension（Pairformer Extension）指令**在 TCU 流水线中原生支持这些模式，消除冗余计算和软件开销。
+### 最初动机：Protenix/AlphaFold3 Pairformer
+
+RVDon 最初为蛋白质结构预测中 Pairformer 模块的三角乘法（Triangle Multiplication）和三角注意力（Triangle Attention）而设计。但这两类操作的本质——**对称性掩码矩阵乘**和**因果掩码在线 Softmax**——远不止生物计算：
+
+| 应用领域 | 三角对称运算 | 因果注意力 |
+|----------|:----------:|:--------:|
+| 蛋白质结构预测（AlphaFold3/Protenix） | ✅ Pairformer | ✅ Triangle Attention |
+| 大语言模型（GPT / LLaMA / DeepSeek） | — | ✅ Decoder causal attention |
+| 图神经网络（GNN） | ✅ 邻接/度矩阵对称乘 | ✅ Graph attention |
+| 分子动力学 / 药物设计 | ✅ 相互作用矩阵 | — |
+| 协方差估计 / PCA | ✅ 对称矩阵运算 | — |
+| 时序预测 / 强化学习 | — | ✅ 因果序列建模 |
+| 视频理解 | — | ✅ 时序因果注意力 |
 
 ---
 
