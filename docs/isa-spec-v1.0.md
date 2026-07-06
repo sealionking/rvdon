@@ -413,6 +413,19 @@ FA_FLASH_ATTN adds a dedicated functional unit `VX_tcu_fa.sv` attached to the TC
 | PF_TMM mask logic | ~0 µm² (1 AND/lane) | N/A | N/A |
 | PF extension total | ~2.9% of chip area | — | — |
 
+### 8.4 Parameterization and Configuration Dependencies
+
+The PF extension is designed to be parameterized through Vortex's `VX_CFG_*` configuration system. Key dependencies:
+
+| Parameter | Source | Derivation |
+|-----------|--------|------------|
+| TCU_TC_M, TCU_TC_N, TCU_TC_K | `VX_CFG_NUM_THREADS` | NT → block geometry (see VX_tcu_pkg.sv) |
+| ISSUE_WIDTH | `VX_CFG_ISSUE_WIDTH` | Must match between RTL (-D flag) and software (kernel compilation) |
+| grid_cta_id width | Fixed 16-bit | Sufficient for up to 65536 CTAs |
+| FA max reduction | TCU_TC_N | Currently only supports TC_N=2 or TC_N=4; TC_N=8 (NT=64) requires parameterized reduction tree |
+
+**Hardcoding audit (v1.0):** 84 instances scanned. All PF RTL derives tile dimensions from `VX_tcu_pkg` localparams. Test code uses `static_assert(VX_CFG_NUM_THREADS == 4)` to prevent silent misconfiguration. PF intrinsics in `vx_pf.h` use `static_assert` for unsupported NRC values.
+
 ---
 
 ## 9 Known Limitations (v1.0)
@@ -432,6 +445,7 @@ FA_FLASH_ATTN adds a dedicated functional unit `VX_tcu_fa.sv` attached to the TC
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-07-06 | Initial release. PF_TMM, PF_TMM_INC, PF_FLASH_ATTN (FA_MMA/FA_SOFTMAX/FA_UPDATE). grid_cta_id coordinate system. |
+| 1.0+1 | 2026-07-06 | Added §8.4 Parameterization and Configuration Dependencies. Hardcoding audit: test code now uses derived TCU dimensions, PF intrinsics have static_assert guards. |
 
 ---
 
