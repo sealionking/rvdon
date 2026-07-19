@@ -90,8 +90,22 @@ PF 扩展**复用 WGMMA 数据通路**，新增：
 | PF_FLASH_ATTN RTL | ✅ 验证通过 | 0/128 错误，FA_SOFTMAX online softmax 流水线正确 |
 | SimX 行为模型 | ✅ 功能完成 | PF_TMM + FA_MMA/FA_SOFTMAX/FA_UPDATE |
 | 回归测试 | ✅ 框架就绪 | `tests/regression/pf_tcu/` |
+| **白杨 DDR4 MC 集成** | ✅ 数据通路挂通 | 替代 DramSim，完整 DFI 3.1 路径 |
 | LLVM intrinsic | ⏸ 待开发 | vx_pf.h 头文件已定义 intrinsics |
 | FPGA 原型 | ⏸ 待开发 | — |
+
+### 白杨 (YuQuan) DDR4 控制器集成
+
+RVDon 已完成与香山团队开源 DDR4 控制器白杨的集成，使内存子系统从行为级理想模型升级为第三方 IP 验证过的真实 DDR4 控制器。
+
+```
+Vortex GPU → L3 → AXI4 → VX_yuquan_wrapper (512→256 适配)
+                              → mc_top (白杨 DDR4 MC)
+                                → DFI 3.1 → PHY → DDR4
+```
+
+- **技术报告**: [docs/yuquan/yuquan-integration-report.md](docs/yuquan/yuquan-integration-report.md)
+- **白杨仓库**: [OpenXiangShan/YuQuan](https://github.com/OpenXiangShan/YuQuan) (MulanPSL-2.0)
 
 ---
 
@@ -147,6 +161,7 @@ rvdon::pf::fa_softmax_sync<8>(fragC, fragS, 0);
 | 文档 | 说明 |
 |------|------|
 | [docs/isa-spec-v1.0.md](docs/isa-spec-v1.0.md) | **PF Extension ISA 规范 v1.0** — 指令编码、语义、寄存器映射、编程模型 |
+| [docs/yuquan/yuquan-integration-report.md](docs/yuquan/yuquan-integration-report.md) | **白杨 DDR4 MC 集成技术报告** — 接口适配、APB3 初始化、DFI 握手 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 架构规范（PF 扩展 ISA、寄存器映射、编程模型） |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献指南 |
 | [docs/opensource-plan.md](docs/opensource-plan.md) | 开源计划 |
@@ -180,6 +195,7 @@ rvdon/
 ## 致谢
 
 - [Vortex RISC-V GPGPU](https://github.com/vortexgpgpu/vortex) — 基础 GPGPU 架构
+- [白杨 (YuQuan) DDR4 控制器](https://github.com/OpenXiangShan/YuQuan) — 开源 DDR4 内存控制器 (MulanPSL-2.0)
 - [Protenix](https://github.com/bytedance/protenix) — AlphaFold3 开源实现
 - [Flash Attention](https://github.com/Dao-AILab/flash-attention) — 在线 Softmax 算法
 
