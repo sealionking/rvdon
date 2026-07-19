@@ -1,0 +1,3 @@
+# .so verification binaries distributed via GitHub Release
+*.so
+results.json

@@ -1,10 +1,6 @@
-<p align="center">
-  <img src="docs/images/DiVo_Gen2AI_Logo_Landscape.svg" alt="DiVo Gen²AI Logo" width="480">
-</p>
-
 # RVDon — RISC-V Domain-specific Open Node
 
-> **三角对称矩阵运算 + 因果注意力加速的 RISC-V 扩展架构**
+> **Protenix/AlphaFold3 Pairformer 加速的 RISC-V 扩展架构**
 >
 > 由 [DiVo Gen²AI](https://wangjueju.cn) 开发 | 基于 [Vortex RISC-V GPU](https://github.com/vortexgpgpu/vortex) | Apache 2.0
 
@@ -12,30 +8,19 @@
 
 ## RVDon 是什么
 
-RVDon 是在 Vortex RISC-V GPGPU 架构上扩展的**领域专用加速节点**，为两类广泛存在的计算模式提供硬件级加速：
+RVDon 是在 Vortex RISC-V GPGPU 架构上扩展的**领域专用加速节点**，为蛋白质结构预测（AlphaFold3 / Protenix）中的 Pairformer 模块提供硬件级加速。
 
-1. **三角对称矩阵运算** — 对称矩阵乘法、图神经网络邻接矩阵、协方差/距离矩阵
-2. **因果注意力（Causal Attention）** — 自回归语言模型（GPT/LLaMA）、序列决策、时序预测
+Pairformer 的核心计算模式：
 
-这些模式的共同特征是在通用 GPU 上存在严重的计算浪费：
-- 对称矩阵只需计算上/下三角，但 WGMMA 仍执行完整矩阵乘后软件掩码——**浪费 ~50% 算力**
-- 因果注意力需要下三角掩码 + online softmax，通用 Flash Attention 需多次全局同步——**延迟高、同步开销大**
+- **Triangle Multiplication (Outgoing/Incoming)**：三角矩阵乘法 + 对称性掩码
+- **Triangle Attention**：三角注意力 + 因果掩码 + 在线 Softmax
 
-RVDon 通过 **PF Extension 指令**在 TCU 流水线中原生支持这些模式，消除冗余计算和软件开销。
+这些模式在通用 GPU 上通过 WGMMA + 软件掩码实现，存在：
+1. 掩码逻辑在标量核上串行执行，浪费算力
+2. Flash Attention 的 online softmax 需要多次全局同步
+3. 三角对称性未被硬件利用，一半计算是冗余的
 
-### 最初动机：Protenix/AlphaFold3 Pairformer
-
-RVDon 最初为蛋白质结构预测中 Pairformer 模块的三角乘法（Triangle Multiplication）和三角注意力（Triangle Attention）而设计。但这两类操作的本质——**对称性掩码矩阵乘**和**因果掩码在线 Softmax**——远不止生物计算：
-
-| 应用领域 | 三角对称运算 | 因果注意力 |
-|----------|:----------:|:--------:|
-| 蛋白质结构预测（AlphaFold3/Protenix） | ✅ Pairformer | ✅ Triangle Attention |
-| 大语言模型（GPT / LLaMA / DeepSeek） | — | ✅ Decoder causal attention |
-| 图神经网络（GNN） | ✅ 邻接/度矩阵对称乘 | ✅ Graph attention |
-| 分子动力学 / 药物设计 | ✅ 相互作用矩阵 | — |
-| 协方差估计 / PCA | ✅ 对称矩阵运算 | — |
-| 时序预测 / 强化学习 | — | ✅ 因果序列建模 |
-| 视频理解 | — | ✅ 时序因果注意力 |
+RVDon 通过 **PF Extension（Pairformer Extension）指令**在 TCU 流水线中原生支持这些模式，消除冗余计算和软件开销。
 
 ---
 
@@ -45,7 +30,7 @@ RVDon 最初为蛋白质结构预测中 Pairformer 模块的三角乘法（Trian
 |------|--------|------|------|
 | `PF_TMM` | 3 | 出向三角遮罩矩阵乘（Triangle Multiplication Outgoing） | ✅ RTL + SimX |
 | `PF_TMM_INC` | 4 | 入向三角遮罩矩阵乘（Triangle Multiplication Incoming） | ✅ RTL + SimX |
-| `PF_FLASH_ATTN` | 5 | Flash Attention（FA_MMA / FA_SOFTMAX / FA_UPDATE 子操作） | ✅ RTL + SimX |
+| `PF_FLASH_ATTN` | 5 | Flash Attention（FA_MMA / FA_SOFTMAX / FA_UPDATE 子操作） | 🔄 RTL 调试中 |
 | `PF_SLOAD` | — | Strided Load | ⏸ 预留 |
 
 详细规范见 [ARCHITECTURE.md](ARCHITECTURE.md)。
@@ -72,6 +57,16 @@ RVDon 最初为蛋白质结构预测中 Pairformer 模块的三角乘法（Trian
 │  │ │└────┘│ │  │ │└────┘│ │  │ │└────┘│ │              │
 │  │ └──────┘ │  │ └──────┘ │  │ └──────┘ │              │
 │  └──────────┘  └──────────┘  └──────────┘              │
+│                       │                                  │
+│              ┌────────┴────────┐                         │
+│              │  Memory Subsystem│                         │
+│              │  ┌─────────────┐ │                         │
+│              │  │ DramSim     │ │  ← 默认（行为模型）    │
+│              │  ├─────────────┤ │                         │
+│              │  │ 白杨 MC     │ │  ← VX_CFG_YUQUAN_MC_   │
+│              │  │ AXI4→DFI3.1 │ │    ENABLE 条件编译     │
+│              │  └─────────────┘ │                         │
+│              └─────────────────┘                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -89,23 +84,10 @@ PF 扩展**复用 WGMMA 数据通路**，新增：
 | PF_TMM RTL | ✅ 验证通过 | 0/128 错误，SimX + RTL 仿真一致 |
 | PF_FLASH_ATTN RTL | ✅ 验证通过 | 0/128 错误，FA_SOFTMAX online softmax 流水线正确 |
 | SimX 行为模型 | ✅ 功能完成 | PF_TMM + FA_MMA/FA_SOFTMAX/FA_UPDATE |
+| 白杨 (YuQuan) DDR4 MC 集成 | ✅ Phase M0 完成 | 功能验证通过（DramSim 零回归 + 白杨宏启用 PASSED），第三方独立审查 PASS |
 | 回归测试 | ✅ 框架就绪 | `tests/regression/pf_tcu/` |
-| **白杨 DDR4 MC 集成** | ✅ 数据通路挂通 | 替代 DramSim，完整 DFI 3.1 路径 |
 | LLVM intrinsic | ⏸ 待开发 | vx_pf.h 头文件已定义 intrinsics |
 | FPGA 原型 | ⏸ 待开发 | — |
-
-### 白杨 (YuQuan) DDR4 控制器集成
-
-RVDon 已完成与香山团队开源 DDR4 控制器白杨的集成，使内存子系统从行为级理想模型升级为第三方 IP 验证过的真实 DDR4 控制器。
-
-```
-Vortex GPU → L3 → AXI4 → VX_yuquan_wrapper (512→256 适配)
-                              → mc_top (白杨 DDR4 MC)
-                                → DFI 3.1 → PHY → DDR4
-```
-
-- **技术报告**: [docs/yuquan/yuquan-integration-report.md](docs/yuquan/yuquan-integration-report.md)
-- **白杨仓库**: [OpenXiangShan/YuQuan](https://github.com/OpenXiangShan/YuQuan) (MulanPSL-2.0)
 
 ---
 
@@ -160,14 +142,9 @@ rvdon::pf::fa_softmax_sync<8>(fragC, fragS, 0);
 
 | 文档 | 说明 |
 |------|------|
-| [docs/isa-spec-v1.0.md](docs/isa-spec-v1.0.md) | **PF Extension ISA 规范 v1.0** — 指令编码、语义、寄存器映射、编程模型 |
-| [docs/yuquan/yuquan-integration-report.md](docs/yuquan/yuquan-integration-report.md) | **白杨 DDR4 MC 集成技术报告** — 接口适配、APB3 初始化、DFI 握手 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 架构规范（PF 扩展 ISA、寄存器映射、编程模型） |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献指南 |
-| [docs/opensource-plan.md](docs/opensource-plan.md) | 开源计划 |
-| [docs/phase2.4-fa-softmax-debug.md](docs/phase2.4-fa-softmax-debug.md) | FA_SOFTMAX 调试报告 |
-| [docs/ref-wgmma-engine.md](docs/ref-wgmma-engine.md) | 参考：Vortex WGMMA 引擎设计 |
-| [docs/ref-custom-accelerator-isa.md](docs/ref-custom-accelerator-isa.md) | 参考：自定义加速器 ISA 扩展指南 |
+| [docs/](docs/) | 设计文档、阶段报告 |
 
 ---
 
@@ -177,6 +154,10 @@ rvdon::pf::fa_softmax_sync<8>(fragC, fragS, 0);
 rvdon/
 ├── hw/rtl/tcu/
 │   └── VX_tcu_fa.sv          ← RVDon: FA Online Softmax 流水线
+├── hw/rtl/mem/
+│   ├── VX_yuquan_wrapper.sv  ← RVDon: 白杨 MC 适配器 (AXI4→DFI3.1)
+│   ├── VX_dfi_sim_model.sv   ← RVDon: DFI 3.1 仿真响应模型
+│   └── yuquan/               ← 白杨 DDR4 MC RTL (Chisel→SV)
 ├── sw/kernel/include/
 │   └── vx_pf.h               ← RVDon: PF 扩展 intrinsics
 ├── tests/regression/pf_tcu/  ← RVDon: PF_TMM/FA 回归测试
@@ -195,7 +176,7 @@ rvdon/
 ## 致谢
 
 - [Vortex RISC-V GPGPU](https://github.com/vortexgpgpu/vortex) — 基础 GPGPU 架构
-- [白杨 (YuQuan) DDR4 控制器](https://github.com/OpenXiangShan/YuQuan) — 开源 DDR4 内存控制器 (MulanPSL-2.0)
+- [白杨 (YuQuan) DDR4 控制器](https://github.com/OpenXiangShan/YuQuan) — 开源 DDR4 内存控制器（Mulan PSL v2）
 - [Protenix](https://github.com/bytedance/protenix) — AlphaFold3 开源实现
 - [Flash Attention](https://github.com/Dao-AILab/flash-attention) — 在线 Softmax 算法
 
@@ -206,5 +187,7 @@ rvdon/
 Apache License 2.0 — 详见 [LICENSE](LICENSE)
 
 RVDon 基于 Vortex（Apache 2.0）开发。RVDon 新增代码版权归 DiVo Gen²AI 王掬琅（Peter Wang）· 王潇奕（Shawn Wang）所有。
+
+白杨 (YuQuan) DDR4 控制器受其独立许可证约束：Copyright © 2021-2026 BOSC / ICT CAS, Mulan PSL v2。
 
 © 2024-2026 DiVo Gen²AI — 王掬琅（Peter Wang）· 王潇奕（Shawn Wang）— [wangjueju.cn](https://wangjueju.cn) · [jueju.wang](https://jueju.wang)
