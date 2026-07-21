@@ -45,20 +45,20 @@ C[i][j] = A[i][:] × B[:][j]   if mask(i, j) = 1
          = 0                    if mask(i, j) = 0
 ```
 
-**Outgoing (PF_TMM)**：`mask(i,j) = (i <= j)`，保留上三角 + 对角线
+**Outgoing (PF_TMM)**：`mask(i,j) = (i < j)`，保留上三角（不含对角线）
 
-**Incoming (PF_TMM_INC)**：`mask(i,j) = (j <= i)` 保留下三角 + 对角线；且 `C[i][j] += C[i][j-1]`（行内累加）
+**Incoming (PF_TMM_INC)**：`mask(k,i,j) = (k < min(i, j))`，入向三角掩码（k 维度截断，含对角线 i==j）
 
 ### 2.2 掩码实现
 
-掩码在 FEDP 输出级门控（不浪费乘加计算），基于全局坐标 `(global_i, global_j, global_k)` 判定：
+掩码在输入侧清零（将 A 行置零，FEDP 乘加结果为 0），基于全局坐标 `(global_i, global_j, global_k)` 判定：
 
 ```systemverilog
-// Outgoing: i <= j（含对角线）
-wire pf_tri_mask_out = (pf_global_i <= pf_global_j);
+// Outgoing: i < j（不含对角线）
+wire pf_tri_mask_out = (pf_global_i < pf_global_j);
 
-// Incoming: j <= i（含对角线）
-wire pf_tri_mask_inc = (pf_global_j <= pf_global_i);
+// Incoming: k < min(i, j)（k 维度截断，含对角线 i==j）
+wire pf_tri_mask_inc = (pf_global_k < pf_global_i) && (pf_global_k < pf_global_j);
 ```
 
 ### 2.3 编程接口
@@ -121,11 +121,11 @@ S2: 乘加 + 输出
 ### 3.3 FA_MMA 因果掩码
 
 ```systemverilog
-// Causal mask: i >= j（行号 >= 列号）
-wire fa_causal_mask = (pf_global_i >= pf_global_j);
+// Causal mask: j <= i（列号 <= 行号，含对角线）
+wire fa_causal_mask = (fa_global_j <= fa_global_i);
 ```
 
-因果掩码与 PF_TMM 三角掩码共享全局坐标信号，在 FEDP 输出级通过 `a_row_mask_enable` MUX 选择。
+因果掩码与 PF_TMM 三角掩码共享全局坐标信号，通过 `a_row_mask_enable` MUX 选择输入侧 A 行清零。
 
 ### 3.4 编程接口
 
